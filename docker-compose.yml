@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: desafio_logap_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: desafio_logap_app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    volumes:
+      - .:/app
+    # Primeiro roda o main.py (setup: cria o schema e carrega as tabelas) e, se
+    # ele terminar bem, sobe o dashboard Streamlit servindo na porta 8501.
+    command: >
+      sh -c "python main.py &&
+             streamlit run app.py
+             --server.port=8501
+             --server.address=0.0.0.0
+             --server.headless=true"
+
+volumes:
+  db_data:
