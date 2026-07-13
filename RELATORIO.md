@@ -1,4 +1,4 @@
-# Relatório final: Desafio LogAp
+# Relatório final: AprovaEdu Analytics
 
 Este relatório reúne as respostas às perguntas obrigatórias do desafio, com os
 principais achados e recomendações. Todas as análises foram geradas a partir dos
@@ -261,4 +261,3 @@ uma API de inteligência artificial, que geraria um parecer sobre aquele dado lo
 abaixo do gráfico, comentando o que se vê e sugerindo leituras. Para não consultar
 a IA a cada visualização e evitar custos desnecessários, esse parecer ficaria
 armazenado em cache, sendo regerado apenas quando o dado por trás mudasse.
-

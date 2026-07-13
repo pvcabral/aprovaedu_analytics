@@ -1,4 +1,4 @@
-# Desafio LogAp: base de curso pré-vestibular
+# Desafio LogAp: AprovaEdu Analytics
 
 Pipeline que trata uma base fictícia de um curso pré-vestibular, carrega os dados
 em um banco Postgres modelado com PK e FK, e apresenta as análises em um dashboard
