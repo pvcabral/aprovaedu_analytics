@@ -47,12 +47,11 @@ O dado sugere que a bolsa está associada a boa parte das aprovações, mas só 
 base completa permite dizer se ela de fato amplia o acesso e converte em
 resultado, ou se apenas acompanha o crescimento geral.
 
-**Investir em acompanhamento de frequência e em ações de engajamento (alertas de
-falta, busca ativa de ausentes).** A base mostra que, no único ano com dados de
-presença (2021), os alunos aprovados frequentaram mais as aulas do que os não
-aprovados, uma taxa de presença de cerca de 79% contra 76%. A diferença é
-pequena e vem de um só ano, então serve para tratar frequência como possível
-fator de risco a acompanhar, não como causa comprovada.
+**Não priorizar acompanhamento de frequência como alavanca de aprovação.** No
+único ano com dados de presença (2021), aprovados e não aprovados frequentaram
+as aulas de forma parecida — 84,6% contra 80,8% de comparecimento. Não existe um
+grupo faltoso entre os não aprovados que justifique alertas de falta ou busca
+ativa como prioridade. Vale reavaliar quando houver presença dos demais anos.
 
 **Reforçar o suporte às turmas online antes de expandi-las.** O motivo é que a
 taxa de aprovação da modalidade online ficou abaixo da presencial e da híbrida

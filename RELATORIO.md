@@ -87,8 +87,11 @@ direto no resultado dos estudantes. Cada aluno com presença registrada foi
 classificado como aprovado ou não aprovado, e comparamos a taxa de presença dos
 dois grupos.
 
-Duas decisões deixam a leitura mais correta:
+Três decisões deixam a leitura mais correta:
 
+- A métrica é comparecimento: contam como presença tanto o status `presente`
+  quanto o `atrasado`, já que em ambos o aluno esteve na aula. Tratar o atraso
+  como falta subestimaria a frequência.
 - A presença foi amarrada ao ano da aula (via `aula_id`) e só é comparada com a
   aprovação do mesmo ano. Isso evita misturar a presença de um ano com a
   aprovação de outro. Aqui só existe dado de 2021.
@@ -97,30 +100,33 @@ Duas decisões deixam a leitura mais correta:
 
 ### Resultado
 
-| Ano | Situação | Alunos | Taxa de presença |
-|---|---|---:|---:|
-| 2021 | Aprovado | 16 | 79,0% |
-| 2021 | Não aprovado | 31 | 76,0% |
+| Ano | Situação | Alunos | Aulas registradas | Comparecimentos | Taxa de presença |
+|---|---|---:|---:|---:|---:|
+| 2021 | Aprovado | 16 | 162 | 137 | 84,6% |
+| 2021 | Não aprovado | 31 | 338 | 273 | 80,8% |
 
 ### Leitura
 
 Os aprovados frequentaram um pouco mais as aulas do que os não aprovados, mas a
-diferença é muito pequena: cerca de 3 pontos percentuais, menos de 4% em termos
+diferença é pequena: cerca de 4 pontos percentuais, menos de 5% em termos
 relativos. É pouco para afirmar que existe uma relação forte entre presença e
-aprovação, ainda mais com apenas 2021 e poucas dezenas de alunos.
+aprovação, ainda mais com apenas 2021 e poucas dezenas de alunos — 47 no total,
+sendo 16 aprovados. Com uma amostra desse tamanho, um punhado de faltas a mais
+ou a menos move a taxa de um grupo em vários pontos.
 
-Um ponto chama mais atenção do que a diferença entre os grupos: as duas taxas
-ficam logo acima de 70%. Esse patamar costuma ser o mínimo que muitos cursos
-exigem para considerar o aluno apto. Ver a frequência geral rondando esse limite
-diz mais do que o pequeno gap entre aprovados e não aprovados.
+O que se vê é uma frequência alta e parecida nos dois grupos, na casa dos 80%.
+Não há um grupo de aprovados que "quase não falta" contra um grupo de reprovados
+faltoso: os dois comparecem à grande maioria das aulas. Se presença explicasse
+aprovação, o esperado era uma separação bem mais nítida do que essa.
 
 ### Recomendação
 
 Com os dados atuais, presença não parece ser uma métrica que a coordenação
-precise vigiar como preditor de aprovação. O que vale investigar é por que a
-frequência está tão perto dos 70%, já que isso pode indicar desengajamento dos
-estudantes, passando eles ou não. Como no resto do relatório, uma leitura firme
-depende de ter a presença de todos os anos, não só de 2021.
+precise vigiar como preditor de aprovação: quem foi aprovado e quem não foi
+frequentam praticamente igual. Para entender o que separa os dois grupos, faz
+mais sentido olhar variáveis de desempenho do que de comparecimento — estar na
+sala não é o mesmo que estar acompanhando a aula. Como no resto do relatório,
+uma leitura firme depende de ter a presença de todos os anos, não só de 2021.
 
 ## Desempenho
 

@@ -371,6 +371,11 @@ def carregar_presenca_aprovacao() -> pd.DataFrame:
     uma aprovação de outro. Cada `presenca_id` é único, então não há
     contagem repetida de aula.
 
+    A métrica é **comparecimento**: contam como frequência tanto `presente`
+    quanto `atrasado`, já que o aluno atrasado esteve na aula. Os demais
+    status ficam de fora do numerador — falta justificada continua sendo
+    não-comparecimento, só com explicação por trás.
+
     Considera **apenas os alunos que de fato têm presença registrada**.
     Essa amostra é curta: a tabela de presenças vem amostrada e ainda perde,
     na carga, os alunos cujo `aluno_id` não existe no cadastro de
@@ -381,7 +386,7 @@ def carregar_presenca_aprovacao() -> pd.DataFrame:
     A situação de aprovação é binária (`Aprovado` / `Não aprovado`) e é
     conferida contra `aprovacoes`, base completa do desafio, logo "não
     aprovado" é real, não dado faltando por amostragem. A taxa de presença
-    é agregada (pooled): soma das aulas presentes dividida pela soma das
+    é agregada: soma das aulas frequentadas dividida pela soma das
     aulas registradas do grupo, para um aluno com poucos registros não
     dominar a média.
 
@@ -399,8 +404,9 @@ def carregar_presenca_aprovacao() -> pd.DataFrame:
                     p.aluno_id,
                     a.ano AS ano,
                     COUNT(*) AS total_aulas,
-                    SUM(CASE WHEN p.status_presenca = 'presente' THEN 1 ELSE 0 END)
-                        AS aulas_presentes
+                    SUM(CASE WHEN LOWER(TRIM(p.status_presenca))
+                                  IN ('presente', 'atrasado')
+                             THEN 1 ELSE 0 END) AS aulas_presentes
                 FROM presencas_aulas p
                 JOIN aulas a ON a.aula_id = p.aula_id
                 WHERE a.ano IS NOT NULL
