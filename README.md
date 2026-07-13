@@ -19,7 +19,14 @@ As respostas às perguntas obrigatórias, os achados e as recomendações estão
 
 Pré-requisito: Docker e Docker Compose instalados.
 
-1. Crie o arquivo de configuração a partir do modelo:
+1. Clone o repositório e entre na pasta:
+
+   ```bash
+   git clone <url-do-repositorio>
+   cd desafio_logap
+   ```
+
+2. Crie o arquivo de configuração a partir do modelo:
 
    ```bash
    cp .env.example .env
@@ -27,7 +34,7 @@ Pré-requisito: Docker e Docker Compose instalados.
 
    Ajuste a senha e, se quiser, as portas.
 
-2. Suba o projeto:
+3. Suba o projeto:
 
    ```bash
    docker compose up --build
@@ -39,7 +46,7 @@ Pré-requisito: Docker e Docker Compose instalados.
      no banco e exporta os CSVs tratados em `data/tratados/`;
    - subir o dashboard Streamlit.
 
-3. Acesse o dashboard em **http://localhost:8501**.
+4. Acesse o dashboard em **http://localhost:8501**.
 
 Para conferir os dados direto no banco:
 
