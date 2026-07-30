@@ -1,12 +1,4 @@
-"""
-Utilitários de limpeza e padronização reutilizados pelos tratamentos
-das tabelas da base pré-vestibular.
-
-Concentra aqui tudo que se repetia célula a célula no notebook de
-exploração: normalização de texto, tratamento de nulos "disfarçados"
-de string, conversão de datas e números, criação de dimensões e
-mapeamento categoria -> id.
-"""
+"""Utilitários de limpeza reutilizados pelos tratamentos das tabelas."""
 
 from __future__ import annotations
 
@@ -17,10 +9,9 @@ import pandas as pd
 
 
 class TratamentoUtils:
-    """Métodos estáticos/de classe usados pelos tratamentos de cada tabela."""
+    """Métodos de limpeza usados pelos tratamentos de cada tabela."""
 
-    # Padrões de texto que representam nulo mas vieram como string
-    # (ex: "nan", "None", "  ", "NaT", "pd.NaT")
+    # Textos que representam nulo mas vieram como string.
     REGEX_NULOS_TEXTUAIS = [
         r'^\s*$',
         r'(?i)^\s*nan\s*$',
@@ -31,10 +22,16 @@ class TratamentoUtils:
         r'(?i)^\s*na\s*$',
     ]
 
-    # Nomes de colunas / abas
     @staticmethod
     def to_snake_case(texto: str) -> str:
-        """Converte um texto (nome de aba/coluna) para snake_case."""
+        """Converte um texto para snake_case.
+
+        Args:
+            texto: nome a converter.
+
+        Returns:
+            O texto em snake_case.
+        """
         texto = texto.strip()
         texto = re.sub(r"[^\w\s]", " ", texto)          # remove caracteres especiais
         texto = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", texto)  # CamelCase -> snake_case
@@ -45,8 +42,14 @@ class TratamentoUtils:
     # Texto
     @staticmethod
     def normalizar_texto(valor):
-        """Remove acentos, espaços nas pontas e coloca em minúsculo.
-        Preserva nulos (retorna o próprio valor se for NA)."""
+        """Remove acento, espaço nas pontas e passa para minúsculo, preservando nulo.
+
+        Args:
+            valor: texto a normalizar.
+
+        Returns:
+            O texto normalizado, ou o próprio valor se for nulo.
+        """
         if pd.isna(valor):
             return valor
 
@@ -60,52 +63,85 @@ class TratamentoUtils:
 
     @classmethod
     def normalizar_colunas(cls, df: pd.DataFrame, colunas: list[str]) -> pd.DataFrame:
-        """Aplica normalizar_texto em uma lista de colunas de um DataFrame."""
+        """Aplica `normalizar_texto` nas colunas informadas.
+
+        Args:
+            df: DataFrame a alterar.
+            colunas: colunas a normalizar.
+
+        Returns:
+            O mesmo DataFrame, com as colunas normalizadas.
+        """
         df[colunas] = df[colunas].apply(lambda col: col.map(cls.normalizar_texto))
         return df
 
     @staticmethod
     def limpar_pontuacao(serie: pd.Series, caracteres_regex: str) -> pd.Series:
-        """Remove caracteres de pontuação (ex.: parênteses, traços) de uma
-        coluna de texto, preservando nulos. `caracteres_regex` é uma classe
-        de caracteres regex, ex.: r'[().\\-\\s]'."""
+        """Remove pontuação de uma coluna de texto, preservando nulo.
+
+        Args:
+            serie: coluna de texto.
+            caracteres_regex: classe de caracteres regex, ex.: r'[()\\-\\s]'.
+
+        Returns:
+            A coluna sem os caracteres informados.
+        """
         return serie.where(
             serie.isna(),
             serie.astype(str).str.replace(caracteres_regex, '', regex=True),
         )
 
-    # Nulos "disfarçados" / preenchimento
     @classmethod
     def limpar_nulos_textuais(cls, serie: pd.Series) -> pd.Series:
-        """Substitui strings que representam nulo (ex: 'nan', 'None', '')
-        por pd.NA, mantendo nulos reais como estão."""
+        """Troca strings que representam nulo por `pd.NA`.
+
+        Args:
+            serie: coluna a limpar.
+
+        Returns:
+            A coluna com os nulos textuais convertidos.
+        """
         return serie.replace(cls.REGEX_NULOS_TEXTUAIS, pd.NA, regex=True)
 
-    # Preenchimento de nulos com valor padrão
     @classmethod
     def preencher_nulos(cls, serie: pd.Series, valor_padrao: str) -> pd.Series:
-        """Limpa nulos disfarçados de string e preenche com um valor padrão
-        (ex: 'sem observações', 'Não informado', 'sem status')."""
+        """Limpa nulos textuais e preenche com um valor padrão.
+
+        Args:
+            serie: coluna a preencher.
+            valor_padrao: valor usado no lugar do nulo.
+
+        Returns:
+            A coluna sem nulos.
+        """
         return cls.limpar_nulos_textuais(serie).fillna(valor_padrao)
 
-    # Números e datas
     @classmethod
     def tratar_numerico(cls, serie: pd.Series, valor_padrao: float = 0) -> pd.Series:
-        """Limpa nulos disfarçados, converte para numérico (coerce) e
-        preenche o que não converteu com `valor_padrao`."""
+        """Converte a coluna para numérico e preenche o que não converteu.
+
+        Args:
+            serie: coluna a converter.
+            valor_padrao: valor usado onde a conversão falhar.
+
+        Returns:
+            A coluna numérica.
+        """
         serie_limpa = cls.limpar_nulos_textuais(serie)
         return pd.to_numeric(serie_limpa, errors='coerce').fillna(valor_padrao)
 
     @staticmethod
     def tratar_data(serie: pd.Series, formato_saida: str | None = None, dayfirst: bool = True) -> pd.Series:
-        """Converte uma coluna de datas (ou datas com horário) em formatos
-        mistos para string.
+        """Converte uma coluna de datas em formatos mistos para string padronizada.
 
-        Se `formato_saida` não for informado, detecta automaticamente se a
-        coluna tem componente de horário (procurando ':' nos valores
-        originais) e escolhe entre '%Y-%m-%d' (só data) e
-        '%Y-%m-%d %H:%M:%S' (data + hora). Passe `formato_saida`
-        explicitamente para forçar um formato específico.
+        Args:
+            serie: coluna de datas.
+            formato_saida: formato de saída. Se omitido, detecta se há horário nos
+                valores e escolhe entre data e data com hora.
+            dayfirst: interpreta o primeiro número como dia em datas ambíguas.
+
+        Returns:
+            A coluna como string no formato de saída.
         """
         convertida = pd.to_datetime(serie, format='mixed', dayfirst=dayfirst, errors='coerce')
 
@@ -115,7 +151,6 @@ class TratamentoUtils:
 
         return convertida.dt.strftime(formato_saida)
 
-    # Dimensões e mapeamento categoria -> id
     @staticmethod
     def criar_dimensao(
         valores,
@@ -123,8 +158,17 @@ class TratamentoUtils:
         nome_coluna_id: str,
         inicio_id: int = 1,
     ) -> pd.DataFrame:
-        """Cria uma tabela dimensão (id, valor) a partir dos valores únicos
-        (já normalizados/padronizados) de uma coluna."""
+        """Cria uma tabela dimensão a partir dos valores únicos de uma coluna.
+
+        Args:
+            valores: valores já normalizados.
+            nome_coluna_valor: nome da coluna de valor na dimensão.
+            nome_coluna_id: nome da coluna de id na dimensão.
+            inicio_id: primeiro id gerado.
+
+        Returns:
+            DataFrame com as colunas de id e valor.
+        """
         dim = (
             pd.DataFrame({nome_coluna_valor: sorted(pd.Series(valores).dropna().unique())})
             .reset_index(drop=True)
@@ -139,12 +183,20 @@ class TratamentoUtils:
         coluna_valor: str,
         coluna_id: str,
     ) -> pd.Series:
-        """Substitui os valores de `serie` pelo id correspondente na tabela
-        dimensão informada."""
+        """Troca os valores da coluna pelo id correspondente na dimensão.
+
+        Args:
+            serie: coluna com os valores a mapear.
+            dimensao: DataFrame da dimensão.
+            coluna_valor: coluna de valor na dimensão.
+            coluna_id: coluna de id na dimensão.
+
+        Returns:
+            A coluna com os ids.
+        """
         mapa = dimensao.set_index(coluna_valor)[coluna_id]
         return serie.map(mapa)
 
-    # Relacionamentos N:N (colunas com múltiplos valores separados por delimitador)
     @staticmethod
     def explodir_coluna(
         df: pd.DataFrame,
@@ -152,9 +204,17 @@ class TratamentoUtils:
         coluna_explodir: str,
         separador: str = ';',
     ) -> pd.DataFrame:
-        """Quebra uma coluna com múltiplos valores separados por `separador`
-        em uma linha por valor (usado para criar tabelas de relacionamento,
-        ex.: professor_materia)."""
+        """Quebra uma coluna de múltiplos valores em uma linha por valor.
+
+        Args:
+            df: DataFrame de origem.
+            colunas_manter: colunas repetidas em cada linha gerada.
+            coluna_explodir: coluna com os valores separados.
+            separador: separador dos valores.
+
+        Returns:
+            DataFrame com uma linha por valor.
+        """
         resultado = df[colunas_manter + [coluna_explodir]].copy()
         resultado[coluna_explodir] = resultado[coluna_explodir].str.split(separador)
         return resultado.explode(coluna_explodir).reset_index(drop=True)

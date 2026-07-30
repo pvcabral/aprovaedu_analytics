@@ -1,5 +1,6 @@
 """Classe responsável pela interação com o banco Postgres do projeto."""
 
+import io
 import os
 import time
 
@@ -13,20 +14,13 @@ load_dotenv()
 
 
 class BancoDados:
-    """Encapsula a conexão e as operações com o banco Postgres do projeto.
-
-    As credenciais são lidas do ambiente (populado a partir do .env) e
-    ficam disponíveis como atributos da instância, em vez de constantes
-    globais no módulo.
-    """
+    """Conexão e operações com o banco Postgres do projeto."""
 
     def __init__(self, schema_path: str | None = None):
-        """Lê as credenciais do .env e define o caminho do schema SQL.
+        """Lê as credenciais do ambiente e define o caminho do schema.
 
         Args:
-            schema_path: caminho do arquivo schema.sql a ser aplicado por
-                `criar_db()`. Se não for informado, usa "schema.sql" no
-                mesmo diretório deste módulo (src/schema.sql).
+            schema_path: caminho do schema.sql. O padrão é `src/schema.sql`.
         """
         self.host = os.getenv("POSTGRES_HOST", "localhost")
         self.port = os.getenv("POSTGRES_PORT", "5432")
@@ -40,28 +34,24 @@ class BancoDados:
 
     @property
     def url_conexao(self) -> str:
-        """Monta a URL de conexão SQLAlchemy a partir dos atributos da instância."""
+        """URL de conexão SQLAlchemy montada a partir das credenciais."""
         return (
             f"postgresql+psycopg2://{self.usuario}:{self.senha}"
             f"@{self.host}:{self.port}/{self.nome_banco}"
         )
 
     def conectar(self, tentativas: int = 15, espera_segundos: int = 2) -> Engine:
-        """Cria o engine de conexão e aguarda o Postgres ficar disponível.
-
-        As tentativas repetidas são úteis ao subir via docker compose, já
-        que o container do banco pode ainda não aceitar conexões no
-        momento exato em que este serviço inicia.
+        """Cria o engine e espera o Postgres aceitar conexão.
 
         Args:
-            tentativas: número máximo de tentativas de conexão.
-            espera_segundos: tempo de espera entre tentativas.
+            tentativas: número máximo de tentativas.
+            espera_segundos: espera entre tentativas.
 
         Returns:
             O engine SQLAlchemy conectado.
 
         Raises:
-            RuntimeError: se não for possível conectar após todas as tentativas.
+            RuntimeError: se não conectar depois de todas as tentativas.
         """
         self.engine = create_engine(self.url_conexao)
         for tentativa in range(1, tentativas + 1):
@@ -79,19 +69,17 @@ class BancoDados:
         raise RuntimeError("Não foi possível conectar ao Postgres.")
 
     def desconectar(self) -> None:
-        """Libera o engine de conexão, se houver um aberto."""
+        """Libera o engine, se houver um aberto."""
         if self.engine is not None:
             self.engine.dispose()
             self.engine = None
             print("Conexão com o Postgres encerrada.")
 
     def criar_db(self) -> None:
-        """Aplica o schema SQL no banco, criando (ou recriando) as tabelas.
-
-        Requer que `conectar()` já tenha sido chamado.
+        """Aplica o schema, criando ou recriando as tabelas.
 
         Raises:
-            RuntimeError: se não houver conexão ativa.
+            RuntimeError: se `conectar()` não foi chamado antes.
         """
         if self.engine is None:
             raise RuntimeError("Chame conectar() antes de criar_db().")
@@ -103,47 +91,50 @@ class BancoDados:
             conexao.execute(text(script))
         print("Schema aplicado (tabelas criadas/recriadas).")
 
-    def carregar_tabela(
-        self, dataframe: pd.DataFrame, nome_tabela: str, chunksize: int = 500
-    ) -> None:
-        """Insere um DataFrame em uma tabela já existente do banco.
-
-        Requer que `conectar()` já tenha sido chamado.
+    def carregar_tabela(self, dataframe: pd.DataFrame, nome_tabela: str) -> None:
+        """Insere um DataFrame numa tabela existente, via COPY do Postgres.
 
         Args:
-            dataframe: dados já tratados a inserir.
-            nome_tabela: nome da tabela de destino no Postgres.
-            chunksize: quantidade de linhas por lote de insert.
+            dataframe: dados já tratados.
+            nome_tabela: tabela de destino.
 
         Raises:
-            RuntimeError: se não houver conexão ativa.
+            RuntimeError: se `conectar()` não foi chamado antes.
         """
         if self.engine is None:
             raise RuntimeError("Chame conectar() antes de carregar_tabela().")
 
-        dataframe.to_sql(
-            nome_tabela,
-            self.engine,
-            if_exists="append",
-            index=False,
-            method="multi",
-            chunksize=chunksize,
-        )
+        # CSV em memória: nulos viram campo vazio e o NULL '' do COPY os
+        # reconverte para NULL no banco.
+        buffer = io.StringIO()
+        dataframe.to_csv(buffer, index=False, header=False, na_rep="")
+        buffer.seek(0)
+
+        colunas = ", ".join(f'"{coluna}"' for coluna in dataframe.columns)
+        conexao_bruta = self.engine.raw_connection()
+        try:
+            with conexao_bruta.cursor() as cursor:
+                cursor.copy_expert(
+                    f"COPY {nome_tabela} ({colunas}) FROM STDIN WITH (FORMAT CSV, NULL '')",
+                    buffer,
+                )
+            conexao_bruta.commit()
+        finally:
+            conexao_bruta.close()
+
         print(f"  -> {nome_tabela}: {len(dataframe)} linhas carregadas.")
 
     def consultar(self, query: str) -> pd.DataFrame:
-        """Executa uma consulta SELECT e retorna o resultado como DataFrame.
-
-        Requer que `conectar()` já tenha sido chamado.
+        """Executa um SELECT e devolve o resultado.
 
         Args:
-            query: instrução SQL SELECT a executar.
+            query: instrução SQL.
 
         Returns:
-            DataFrame com o resultado da consulta.
+            DataFrame com o resultado.
 
         Raises:
-            RuntimeError: se não houver conexão ativa.
+            RuntimeError: se `conectar()` não foi chamado antes.
         """
         if self.engine is None:
             raise RuntimeError("Chame conectar() antes de consultar().")

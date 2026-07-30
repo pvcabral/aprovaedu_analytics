@@ -1,35 +1,61 @@
-"""
-Classe responsável pelos tratamentos de cada tabela da base pré-vestibular.
+"""Tratamento de cada tabela da base pré-vestibular.
 
-Cada método `tratar_*` corresponde a uma seção do notebook de exploração
-original. A ordem importa: `tratar_professores` precisa rodar primeiro
-porque cria a dimensão `dim_materia`, usada por `tratar_ofertas_curso` e
-`tratar_matriculas`. Use `executar_pipeline()` para rodar tudo na ordem
-correta de uma vez.
+`tratar_professores` roda primeiro porque cria `dim_materia`, usada pelos demais.
+`executar_pipeline()` chama tudo na ordem certa.
 """
+import os
+
+import numpy as np
 import pandas as pd
 
 from .tratamento_utils import TratamentoUtils
+
+# Arquivo CSV de origem -> nome da tabela. Explícito porque dois nomes não batem:
+# aprovacoes_vestibular.csv e resultados_simulados.csv.
+ARQUIVOS_CSV = {
+    "professores.csv": "professores",
+    "estudantes.csv": "estudantes",
+    "ofertas_curso.csv": "ofertas_curso",
+    "matriculas.csv": "matriculas",
+    "aprovacoes_vestibular.csv": "aprovacoes",
+    "simulados.csv": "simulados",
+    "resultados_simulados.csv": "resultados_sim",
+    "aulas.csv": "aulas",
+    "presencas_aulas.csv": "presencas_aulas",
+}
+
+# Teto da escala de correção por matéria. Redação é corrigida em 0-1000 e as
+# demais em 0-100.
+NOTA_MAXIMA_PADRAO = 100
+NOTA_MAXIMA_POR_MATERIA = {"redacao": 1000}
+
+# Tolerância de atraso em minutos: quem compareceu com atraso acima deste valor é
+# classificado como 'atrasado'. 0 significa que qualquer minuto conta como atraso.
+# Mudar aqui altera só a fronteira entre 'presente' e 'atrasado'.
+TOLERANCIA_ATRASO_MIN = 0
 
 
 class TratamentoTabelas:
     """Carrega e trata as tabelas da base pré-vestibular."""
 
-    def __init__(self, arquivo: str | None = None, tabelas: dict[str, pd.DataFrame] | None = None):
-        """Inicializa a classe a partir de um arquivo Excel ou de tabelas já em memória.
+    def __init__(
+        self,
+        diretorio_csv: str | None = None,
+        tabelas: dict[str, pd.DataFrame] | None = None,
+    ):
+        """Inicializa a classe a partir dos CSVs de origem ou de tabelas em memória.
 
         Args:
-            arquivo: caminho do Excel com as abas de amostra. Ignorado se
-                `tabelas` for informado.
-            tabelas: dicionário {nome_tabela: DataFrame} já carregado,
-                usado no lugar da leitura do Excel (útil em testes).
+            diretorio_csv: diretório com os CSVs da base.
+            tabelas: dicionário {nome_tabela: DataFrame} já carregado, usado no
+                lugar da leitura de arquivo (útil em testes). Tem precedência.
         """
         self.utils = TratamentoUtils
 
         if tabelas is not None:
             self.tabelas = tabelas
-        elif arquivo is not None:
-            self.tabelas = self.carregar_dados(arquivo)
+        elif diretorio_csv is not None:
+            self.tabelas = self.carregar_dados_csv(diretorio_csv)
         else:
             self.tabelas = {}
 
@@ -38,33 +64,39 @@ class TratamentoTabelas:
         self.professor_materia: pd.DataFrame | None = None
 
     # Leitura
-    def carregar_dados(self, arquivo: str) -> dict[str, pd.DataFrame]:
-        """Lê todas as abas do excel e padroniza os nomes (chaves do dict)
-        para snake_case."""
-        tabelas_brutas = pd.read_excel(arquivo, sheet_name=None)
+    def carregar_dados_csv(self, diretorio: str) -> dict[str, pd.DataFrame]:
+        """Lê os CSVs da base.
 
+        Args:
+            diretorio: pasta com os CSVs.
+
+        Returns:
+            Dicionário {nome_tabela: DataFrame} com os dados crus.
+
+        Raises:
+            FileNotFoundError: se algum CSV esperado não estiver no diretório.
+        """
         tabelas = {}
-        for nome, df in tabelas_brutas.items():
-            var_name = self.utils.to_snake_case(nome)
-            tabelas[var_name] = df
-            print(f"{var_name} -> {df.shape}")
+        for arquivo, chave in ARQUIVOS_CSV.items():
+            caminho = os.path.join(diretorio, arquivo)
+            if not os.path.exists(caminho):
+                raise FileNotFoundError(
+                    f"CSV da base completa não encontrado: {caminho}"
+                )
+            df = pd.read_csv(caminho, encoding="utf-8-sig")
+            tabelas[chave] = df
+            print(f"{chave} -> {df.shape}")
 
         return tabelas
 
-    # amostra_professores
+    # professores
     def tratar_professores(self) -> pd.DataFrame:
-        """Trata a tabela de professores.
-
-        Preenche nulos, normaliza texto e datas, e gera dois artefatos
-        usados pelos demais tratamentos: a dimensão `dim_materia` e o
-        relacionamento N:N `professor_materia`. Também remove o cadastro
-        duplicado de professor (mesmo `nome_professor` com `professor_id`
-        diferente), mantendo a primeira ocorrência.
+        """Trata professores e gera `dim_materia` e `professor_materia`.
 
         Returns:
-            O DataFrame de professores já tratado.
+            O DataFrame de professores tratado.
         """
-        df = self.tabelas['amostra_professores'].copy()
+        df = self.tabelas['professores'].copy()
 
         df['observacoes'] = self.utils.preencher_nulos(df['observacoes'], 'sem observacoes')
         df['email_professor'] = self.utils.preencher_nulos(df['email_professor'], 'sem registro')
@@ -85,6 +117,14 @@ class TratamentoTabelas:
         # Dimensão de matérias, usada também por ofertas_curso e matriculas
         self.dim_materia = self.utils.criar_dimensao(
             df['materia_principal'], nome_coluna_valor='nome_materia', nome_coluna_id='materia_id'
+        )
+        # A escala da nota é atributo da matéria, então mora na dimensão: assim
+        # tratamento e dashboard leem a mesma fonte, em vez de repetir o limite
+        # em cada consulta.
+        self.dim_materia['nota_maxima'] = (
+            self.dim_materia['nome_materia']
+            .map(NOTA_MAXIMA_POR_MATERIA)
+            .fillna(NOTA_MAXIMA_PADRAO)
         )
 
         # Relacionamento professor <-> matéria (N:N), antes de descartar a coluna original
@@ -112,20 +152,17 @@ class TratamentoTabelas:
         df = df.rename(columns={'materia_principal': 'materia_id'})
         df = df.drop(columns=['materias_ensina'])
 
-        self.tabelas['amostra_professores'] = df
+        self.tabelas['professores'] = df
         return df
 
-    # amostra_estudantes
+    # estudantes
     def tratar_estudantes(self) -> pd.DataFrame:
-        """Trata a tabela de estudantes.
-
-        Preenche nulos textuais, normaliza colunas categóricas, converte
-        datas e remove pontuação de telefone e CPF fictício.
+        """Trata estudantes: nulos, texto, datas e pontuação de telefone e CPF.
 
         Returns:
-            O DataFrame de estudantes já tratado.
+            O DataFrame de estudantes tratado.
         """
-        df = self.tabelas['amostra_estudantes'].copy()
+        df = self.tabelas['estudantes'].copy()
 
         df['escola_origem'] = self.utils.preencher_nulos(df['escola_origem'], 'Não informado')
         df = self.utils.normalizar_colunas(df, ['escola_origem', 'cidade', 'canal_captacao'])
@@ -139,27 +176,23 @@ class TratamentoTabelas:
         for coluna in ['cpf_ficticio', 'email_aluno', 'telefone', 'canal_captacao']:
             df[coluna] = self.utils.preencher_nulos(df[coluna], 'sem registro')
 
-        self.tabelas['amostra_estudantes'] = df
+        self.tabelas['estudantes'] = df
         return df
 
-    # amostra_ofertas_curso
+    # ofertas_curso
     def tratar_ofertas_curso(self) -> pd.DataFrame:
-        """Trata a tabela de ofertas de curso.
-
-        Remove a coluna de nome de professor informado manualmente,
-        converte datas e substitui o nome da matéria pelo id em
-        `dim_materia`.
+        """Trata ofertas de curso: datas e matéria trocada pelo id.
 
         Returns:
-            O DataFrame de ofertas de curso já tratado.
+            O DataFrame de ofertas tratado.
 
         Raises:
-            RuntimeError: se `tratar_professores()` ainda não rodou.
+            RuntimeError: se `tratar_professores()` não rodou antes.
         """
         if self.dim_materia is None:
             raise RuntimeError("Rode tratar_professores() antes: dim_materia ainda não existe.")
 
-        df = self.tabelas['amostra_ofertas_curso'].copy()
+        df = self.tabelas['ofertas_curso'].copy()
         df = df.drop(columns=['professor_nome_informado'])
 
         for coluna in ['data_inicio', 'data_fim']:
@@ -169,31 +202,26 @@ class TratamentoTabelas:
         df['materia'] = self.utils.mapear_para_id(df['materia'], self.dim_materia, 'nome_materia', 'materia_id')
         df = df.rename(columns={'materia': 'materia_id'})
 
-        self.tabelas['amostra_ofertas_curso'] = df
+        self.tabelas['ofertas_curso'] = df
         return df
 
-    # amostra_matriculas
+    # matriculas
     def tratar_matriculas(self) -> pd.DataFrame:
-        """Trata a tabela de matrículas.
-
-        Converte campos numéricos e de data, normaliza colunas
-        categóricas e substitui a matéria declarada pelo id em
-        `dim_materia`.
+        """Trata matrículas: numéricos, datas, texto e matéria trocada pelo id.
 
         Returns:
-            O DataFrame de matrículas já tratado.
+            O DataFrame de matrículas tratado.
 
         Raises:
-            RuntimeError: se `tratar_professores()` ainda não rodou.
+            RuntimeError: se `tratar_professores()` não rodou antes.
         """
         if self.dim_materia is None:
             raise RuntimeError("Rode tratar_professores() antes: dim_materia ainda não existe.")
 
-        df = self.tabelas['amostra_matriculas'].copy()
+        df = self.tabelas['matriculas'].copy()
 
-        for coluna in ['bolsa_percentual', 'nota_diagnóstico']:
-            if coluna in df.columns:
-                df[coluna] = self.utils.tratar_numerico(df[coluna])
+        for coluna in ['bolsa_percentual', 'nota_diagnostico']:
+            df[coluna] = self.utils.tratar_numerico(df[coluna])
 
         df['data_matricula'] = self.utils.tratar_data(df['data_matricula'])
         df = self.utils.normalizar_colunas(df, ['status_matricula', 'materia_declarada', 'origem_captacao'])
@@ -205,27 +233,23 @@ class TratamentoTabelas:
         )
         df = df.rename(columns={'materia_declarada': 'materia_id'})
 
-        self.tabelas['amostra_matriculas'] = df
+        self.tabelas['matriculas'] = df
         return df
 
-    # amostra_simulados
+    # simulados
     def tratar_simulados(self) -> pd.DataFrame:
-        """Trata a tabela de simulados.
-
-        Preenche nulos textuais, normaliza colunas categóricas, converte
-        datas, substitui a matéria pelo id em `dim_materia` e remove a
-        coluna de nome de professor informado manualmente.
+        """Trata simulados: nulos, texto, datas e matéria trocada pelo id.
 
         Returns:
-            O DataFrame de simulados já tratado.
+            O DataFrame de simulados tratado.
 
         Raises:
-            RuntimeError: se `tratar_professores()` ainda não rodou.
+            RuntimeError: se `tratar_professores()` não rodou antes.
         """
         if self.dim_materia is None:
             raise RuntimeError("Rode tratar_professores() antes: dim_materia ainda não existe.")
 
-        df = self.tabelas['amostra_simulados'].copy()
+        df = self.tabelas['simulados'].copy()
 
         df['tema'] = self.utils.preencher_nulos(df['tema'], 'nao informado')
         df['dificuldade'] = self.utils.preencher_nulos(df['dificuldade'], 'nao informado')
@@ -236,23 +260,35 @@ class TratamentoTabelas:
         df = df.rename(columns={'materia': 'materia_id'})
         df = df.drop(columns=['professor_nome_informado'])
 
-        self.tabelas['amostra_simulados'] = df
+        self.tabelas['simulados'] = df
         return df
 
-    # amostra_resultados_sim
+    # resultados_sim
     def tratar_resultados_sim(self) -> pd.DataFrame:
         """Trata a tabela de resultados de simulado.
 
         Preenche nulos, converte campos numéricos e de data, e sinaliza
-        dois tipos de outlier: nota acima da escala plausível (0-100) e
-        tempo de finalização acima do `tempo_limite_min` do simulado
-        correspondente. Os valores não são corrigidos, apenas sinalizados
-        nas colunas `nota_acima_lim` e `tempo_acima_lim`.
+        três tipos de outlier: nota acima da escala da matéria, nota
+        negativa e tempo de finalização acima do `tempo_limite_min` do
+        simulado correspondente. Os valores originais não são corrigidos,
+        apenas sinalizados em `nota_acima_lim`, `nota_abaixo_lim` e
+        `tempo_acima_lim`.
+
+        Gera também `nota_norm`, a nota capada nos limites da matéria e
+        reescalada para 0-100. Como redação é corrigida em 0-1000 e as
+        demais matérias em 0-100, é essa coluna que torna as notas
+        comparáveis entre matérias.
 
         Returns:
             O DataFrame de resultados de simulado já tratado.
+
+        Raises:
+            RuntimeError: se `tratar_professores()` ainda não rodou.
         """
-        df = self.tabelas['amostra_resultados_sim'].copy()
+        if self.dim_materia is None:
+            raise RuntimeError("Rode tratar_professores() antes: dim_materia ainda não existe.")
+
+        df = self.tabelas['resultados_sim'].copy()
 
         # Padroniza caixa/acentos das colunas categóricas antes de preencher nulos
         df = self.utils.normalizar_colunas(
@@ -264,7 +300,13 @@ class TratamentoTabelas:
         df['unidade_aplicacao'] = self.utils.preencher_nulos(df['unidade_aplicacao'], 'sem registro')
 
         df['nota'] = self.utils.tratar_numerico(df['nota'], valor_padrao=0)
-        df['acertos'] = self.utils.tratar_numerico(df['acertos'], valor_padrao=0)
+        # acertos fica sem preenchimento: em redação a coluna é 100% nula (a
+        # matéria não tem questões objetivas), e preencher com 0 faria a média
+        # de acertos da matéria aparecer como 0 no dashboard, um número que
+        # nunca foi medido. Nulo aqui significa "não se aplica/não registrado".
+        df['acertos'] = pd.to_numeric(
+            self.utils.limpar_nulos_textuais(df['acertos']), errors='coerce'
+        )
         df['tempo_finalizacao_min'] = self.utils.tratar_numerico(df['tempo_finalizacao_min'], valor_padrao=0)
         df['tentativas'] = self.utils.tratar_numerico(df['tentativas'], valor_padrao=0)
 
@@ -272,39 +314,53 @@ class TratamentoTabelas:
         # tratar_data detecta o ':' e já formata como data + hora
         df['inicio_simulado'] = self.utils.tratar_data(df['inicio_simulado'])
 
-        # Outlier 1: nota acima da escala plausível (0-100). Não corrigimos o
-        # valor (pode ser erro de digitação ou de fonte), só sinalizamos.
-        df['nota_acima_lim'] = df['nota'] > 100
+        # Outlier 1: nota fora da escala da própria matéria. O limite superior
+        # vem de dim_materia (100 na maioria, 1000 em redação) e o inferior é
+        # sempre 0. Não corrigimos o valor original (pode ser erro de digitação
+        # ou de fonte), só sinalizamos e guardamos a versão normalizada.
+        materias = self.tabelas['simulados'][['simulado_id', 'materia_id']]
+        df = df.merge(materias, on='simulado_id', how='left')
+        df['nota_maxima'] = self.utils.mapear_para_id(
+            df['materia_id'], self.dim_materia, 'materia_id', 'nota_maxima'
+        )
+
+        df['nota_acima_lim'] = df['nota'] > df['nota_maxima']
+        df['nota_abaixo_lim'] = df['nota'] < 0
+
+        # nota_norm põe todas as matérias na mesma escala 0-100, capando os
+        # outliers nas duas pontas. É essa coluna que as análises usam, para
+        # não repetir a regra de escala em cada consulta.
+        df['nota_norm'] = (
+            df['nota'].clip(lower=0).clip(upper=df['nota_maxima'])
+            / df['nota_maxima'] * 100
+        ).round(1)
+        df = df.drop(columns=['materia_id', 'nota_maxima'])
 
         # Outlier 2: tempo de finalização acima do tempo_limite_min do próprio
-        # simulado (tabela amostra_simulados). Usamos a tabela ainda "crua"
+        # simulado (tabela simulados). Usamos a tabela ainda "crua"
         # (chave/tempo não sofrem tratamento de texto) só para essa checagem.
-        limites = self.tabelas['amostra_simulados'][['simulado_id', 'tempo_limite_min']]
+        limites = self.tabelas['simulados'][['simulado_id', 'tempo_limite_min']]
         df = df.merge(limites, on='simulado_id', how='left')
         df['tempo_acima_lim'] = df['tempo_finalizacao_min'] > df['tempo_limite_min']
         df = df.drop(columns=['tempo_limite_min'])
 
-        self.tabelas['amostra_resultados_sim'] = df
+        self.tabelas['resultados_sim'] = df
         return df
 
-    # amostra_aulas
+    # aulas
     def tratar_aulas(self) -> pd.DataFrame:
-        """Trata a tabela de aulas.
-
-        Normaliza colunas categóricas, preenche nulos, converte campos
-        numéricos e de data, e substitui a matéria pelo id em
-        `dim_materia`.
+        """Trata aulas: texto, nulos, numéricos, datas e matéria trocada pelo id.
 
         Returns:
-            O DataFrame de aulas já tratado.
+            O DataFrame de aulas tratado.
 
         Raises:
-            RuntimeError: se `tratar_professores()` ainda não rodou.
+            RuntimeError: se `tratar_professores()` não rodou antes.
         """
         if self.dim_materia is None:
             raise RuntimeError("Rode tratar_professores() antes: dim_materia ainda não existe.")
 
-        df = self.tabelas['amostra_aulas'].copy()
+        df = self.tabelas['aulas'].copy()
 
         df = self.utils.normalizar_colunas(df, ['modalidade_aula', 'materia', 'tema_aula'])
         df['modalidade_aula'] = self.utils.preencher_nulos(df['modalidade_aula'], 'sem registro')
@@ -314,50 +370,76 @@ class TratamentoTabelas:
         df['materia'] = self.utils.mapear_para_id(df['materia'], self.dim_materia, 'nome_materia', 'materia_id')
         df = df.rename(columns={'materia': 'materia_id'})
 
-        self.tabelas['amostra_aulas'] = df
+        self.tabelas['aulas'] = df
         return df
 
-    # amostra_presencas_aulas
+    # presencas_aulas
     def tratar_presencas_aulas(self) -> pd.DataFrame:
         """Trata a tabela de presenças em aula.
 
-        Normaliza o status de presença e aplica a regra de negócio: uma
-        ausência com justificativa preenchida vira "justificado". Nulos
-        em `justificativa` são mantidos como estão (ausência de
-        justificativa é um estado válido).
+        Normaliza o status de presença e aplica duas regras de negócio:
+
+        1. Ausência com justificativa preenchida vira "justificado". Nulos
+           em `justificativa` são mantidos como estão (ausência de
+           justificativa é um estado válido).
+        2. Entre quem compareceu, o status é **reconciliado com o atraso
+           medido**: atraso acima de `TOLERANCIA_ATRASO_MIN` é "atrasado",
+           até a tolerância é "presente". A origem traz os dois campos
+           preenchidos de forma independente (`presente` e `atrasado` têm
+           distribuição de `atraso_min` idêntica, e 33 mil registros
+           `presente` têm atraso acima de zero), então o rótulo original
+           não é confiável. `atraso_min` é a medida, e é ela que decide.
+
+        Quando `atraso_min` é nulo não há medida para reconciliar, e o
+        status original é mantido: nulo aqui significa "não registrado", ou
+        "não se aplica" no caso de quem não compareceu.
 
         Returns:
             O DataFrame de presenças já tratado.
         """
-        df = self.tabelas['amostra_presencas_aulas'].copy()
+        df = self.tabelas['presencas_aulas'].copy()
 
         df = self.utils.normalizar_colunas(df, ['status_presenca'])
 
-        # Regra de negócio: ausente com justificativa preenchida vira "justificado"
+        # atraso_min preserva o nulo, em vez de virar 0: "chegou na hora" (0) e
+        # "atraso não registrado" (nulo) são coisas diferentes, e a distinção é o
+        # que decide se há medida para reconciliar o status. Só quem compareceu
+        # tem atraso: em `ausente` e `justificado` a coluna é 100% nula na origem,
+        # e preencher com 0 afirmaria que o aluno faltante chegou na hora.
+        df['atraso_min'] = pd.to_numeric(
+            self.utils.limpar_nulos_textuais(df['atraso_min']), errors='coerce'
+        )
+
+        # Regra de negócio 1: ausente com justificativa preenchida vira "justificado"
         mask_ausente_justificado = (df['status_presenca'] == 'ausente') & df['justificativa'].notna()
         df.loc[mask_ausente_justificado, 'status_presenca'] = 'justificado'
 
+        # Regra de negócio 2: reconcilia o status de quem compareceu com o atraso
+        # medido. Não altera nenhuma taxa de frequência, porque as análises somam
+        # 'presente' e 'atrasado' como comparecimento, mas faz a categoria
+        # 'atrasado' passar a significar algo.
+        compareceu = df['status_presenca'].isin(['presente', 'atrasado'])
+        tem_medida = df['atraso_min'].notna()
+        df.loc[compareceu & tem_medida, 'status_presenca'] = np.where(
+            df.loc[compareceu & tem_medida, 'atraso_min'] > TOLERANCIA_ATRASO_MIN,
+            'atrasado',
+            'presente',
+        )
+
         df['status_presenca'] = self.utils.preencher_nulos(df['status_presenca'], 'sem registro')
-        df['atraso_min'] = self.utils.tratar_numerico(df['atraso_min'], valor_padrao=0)
         # justificativa: mantida como está, nulos são um estado válido (sem justificativa)
 
-        self.tabelas['amostra_presencas_aulas'] = df
+        self.tabelas['presencas_aulas'] = df
         return df
 
-    # amostra_aprovacoes
+    # aprovacoes
     def tratar_aprovacoes(self) -> pd.DataFrame:
-        """Trata a tabela de aprovações.
-
-        Normaliza colunas categóricas, converte a data de resultado e
-        remove cadastros duplicados: quando a mesma combinação de
-        aluno/ano/universidade/curso aparece duas vezes, mantém a linha
-        com a chamada real e descarta a marcada como
-        "cadastro duplicado?".
+        """Trata aprovações e remove as duplicadas por regra de negócio.
 
         Returns:
-            O DataFrame de aprovações já tratado.
+            O DataFrame de aprovações tratado.
         """
-        df = self.tabelas['amostra_aprovacoes'].copy()
+        df = self.tabelas['aprovacoes'].copy()
 
         df = self.utils.normalizar_colunas(
             df, ['universidade', 'curso_aprovado', 'modalidade_vaga', 'chamada', 'bolsa_aprovacao', 'campus']
@@ -380,12 +462,16 @@ class TratamentoTabelas:
             subset=['aluno_id', 'ano_vestibular', 'universidade', 'curso_aprovado'], keep='first'
         ).reset_index(drop=True)
 
-        self.tabelas['amostra_aprovacoes'] = df
+        self.tabelas['aprovacoes'] = df
         return df
 
     # Pipeline completo
     def executar_pipeline(self) -> dict[str, pd.DataFrame]:
-        """Roda os tratamentos já finalizados, na ordem correta de dependência."""
+        """Roda todos os tratamentos na ordem de dependência.
+
+        Returns:
+            Dicionário {nome_tabela: DataFrame} com todas as tabelas tratadas.
+        """
         self.tratar_professores()
         self.tratar_estudantes()
         self.tratar_ofertas_curso()

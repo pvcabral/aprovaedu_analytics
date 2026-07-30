@@ -1,265 +1,380 @@
 # Relatório final: AprovaEdu Analytics
 
-Este relatório responde às perguntas obrigatórias do desafio e reúne os
-principais achados e recomendações. Todas as análises saem dos dados já
-processados (veja o [README.md](README.md) para rodar o pipeline).
+Este relatório responde às perguntas do desafio e reúne os achados e as
+recomendações. Todos os números saem das consultas em `src/dashboard/querys/`, que
+rodam como SQL puro e podem ser conferidas fora do dashboard.
 
-Um aviso vale para tudo o que vem a seguir: a base analisada é uma **amostra**.
-A maioria das tabelas vem cortada em cerca de 500 linhas, e cada aba foi
-amostrada de forma independente. Por isso muitos cruzamentos ficam com poucas
-dezenas de alunos, e alguns recortes cobrem só parte da realidade. As conclusões
-aqui são indícios que apontam direções, não números fechados. Cada análise deixa
-o tamanho da base à vista, e a confirmação definitiva depende da base completa.
+A base cobre 2021 a 2025, com 1.022 pares de aluno e ano matriculados, 339
+aprovações no vestibular, 18.299 simulados concluídos e 74.997 registros de presença.
 
-## Taxa de aprovação
+## A conclusão que organiza o resto
+
+Vale começar pelo achado central, porque ele muda o tipo de recomendação que o
+relatório pode fazer: **nenhum dos fatores testados distingue quem passa de quem não
+passa no vestibular.**
+
+| Fator | Diferença na taxa de aprovação | Intervalo de 95% |
+|---|---:|---|
+| Presença nas aulas | −2,2 pp | −15,3 a +11,0 |
+| Nota de simulado | −3,8 pp | −11,7 a +4,1 |
+| Nota diagnóstica na matrícula | +1,7 pp | −6,4 a +9,8 |
+| Modelo de ensino | −0,7 pp | −6,7 a +5,3 |
+| Ano de matrícula | +6,2 pp | −3,6 a +15,9 |
+
+Cada linha compara o grupo alto com o grupo baixo do fator, na mesma unidade: pontos
+percentuais de taxa de aprovação. **Os cinco intervalos contêm o zero**, o que
+significa que nenhuma dessas diferenças se distingue de nenhuma diferença.
+
+E o maior efeito da tabela é a variação entre dois anos. A oscilação natural de um ano
+para o outro é maior do que qualquer fator que a coordenação controla.
+
+Isso não é ausência de resposta. Muda a resposta: em vez de apontar onde investir para
+melhorar a conversão, o relatório aponta onde a coordenação está livre para decidir por
+custo, e o que falta registrar para conseguir responder melhor.
+
+---
+
+## 1. Evolução da taxa de aprovação
 
 ### Como a taxa foi definida
 
-A taxa foi medida sobre os **alunos matriculados em cada ano**, e não pela
-contagem simples das linhas da tabela de aprovações. A pergunta que ela responde
-é concreta: dos alunos que fizeram o cursinho num determinado ano, quantos
-prestaram o vestibular daquele ano e passaram. Cada aluno entra na conta do ano
-em que esteve matriculado, e a aprovação só conta quando acontece no vestibular
-do mesmo ano.
+A taxa é medida sobre os **alunos matriculados em cada ano**, e não pela contagem das
+linhas da tabela de aprovações. A pergunta que ela responde é concreta: dos alunos que
+fizeram o cursinho num ano, quantos passaram no vestibular daquele mesmo ano.
 
-Essa escolha evita uma leitura enganosa. Contar as aprovações soltas somaria
-passagens sem saber se o aluno estava matriculado naquele período, e misturaria
-anos diferentes. Medindo sobre a coorte de matriculados, a taxa passa a
-significar "efetividade do preparo daquele ano", que é o que interessa para a
-coordenação.
+Contar as aprovações soltas somaria passagens sem saber se o aluno estava matriculado
+no período, e misturaria anos diferentes. Medindo sobre os matriculados, a taxa
+significa "efetividade do preparo daquele ano".
 
-O denominador (matriculados) vem de uma tabela amostrada. Já o numerador é
-conferido contra a tabela de aprovações, que é a base completa do desafio. Ou
-seja: quando um matriculado não aparece como aprovado, isso é real, e não um
-dado que faltou por amostragem.
+O denominador vem de `matriculas` e o numerador é conferido contra `aprovacoes`, então
+"não aprovado" é ausência real de aprovação, e não dado que faltou.
 
 ### Resultado
 
-| Ano | Matriculados | Aprovados | Taxa de aprovação | Evolução vs. ano anterior |
+| Ano | Matriculados | Aprovados | Taxa | Variação vs. ano anterior |
 |---|---:|---:|---:|---:|
-| 2021 | 9 | 3 | 33,3% | - |
-| 2022 | 15 | 4 | 26,7% | -19,8% |
-| 2023 | 15 | 7 | 46,7% | +74,9% |
-| 2024 | 12 | 6 | 50,0% | +7,1% |
-| 2025 | 6 | 4 | 66,7% | +33,4% |
+| 2021 | 138 | 50 | 36,2% | — |
+| 2022 | 170 | 53 | 31,2% | −5,0 pp |
+| 2023 | 218 | 77 | 35,3% | +4,1 pp |
+| 2024 | 263 | 79 | 30,0% | −5,3 pp |
+| 2025 | 233 | 80 | 34,3% | +4,3 pp |
 
-A taxa cresce de forma consistente no período. Depois de uma queda de 2021 para
-2022 (-19,8%), a evolução é sempre positiva: um salto forte de 2022 para 2023
-(+74,9%), um avanço menor até 2024 (+7,1%) e outro salto até 2025 (+33,4%). No
-total do intervalo, a taxa praticamente dobra, saindo de um terço dos
-matriculados para dois terços.
+**A taxa não tem tendência.** O maior valor é 36,2% em 2021 e o menor é 30,0% em 2024,
+uma diferença de 6,2 pontos percentuais em torno da média de 33,2%. De um ano para o
+outro a taxa alterna entre subir e cair, com três trocas de sinal em quatro intervalos,
+sem seguir direção nenhuma. Esse vai e vem é o que se espera de variação normal entre
+turmas, e não de um preparo que melhorou ou piorou.
 
-### Leitura
+**O que de fato cresceu foi a operação.** Os matriculados por ano subiram de 138 para
+233, um aumento de 68,8%. Os aprovados subiram de 50 para 80, ou 60,0%. Como os dois
+crescem quase no mesmo ritmo, a taxa fica parada. Em outras palavras, o cursinho vem
+formando mais aprovados em número absoluto, mas converte sempre a mesma proporção de
+alunos.
 
-É um ótimo resultado, e sugere que o preparo vem ficando mais efetivo ano a ano.
-Mas ele ainda não é totalmente confiável: a amostra de matrículas cobre poucos
-alunos por ano (entre 6 e 15). Por isso, leia a taxa como uma tendência
-encorajadora, não como o número fechado do curso. A base completa de matrículas
-confirma se o crescimento se sustenta.
+Vale notar que o melhor ano é o primeiro, com a menor turma, e o pior é 2024, com a
+maior. Um ano não prova relação entre crescer e converter menos, mas é a hipótese que
+vale acompanhar.
 
-### Recorte por bolsa
+---
 
-Vale olhar também quantos aprovados passaram com bolsa (integral ou parcial) e
-quantos sem bolsa, por ano:
+## 2. Presença nas aulas e aprovação
 
-| Ano | Com bolsa | Sem bolsa | Não informado |
-|---|---:|---:|---:|
-| 2021 | 20 | 6 | 5 |
-| 2022 | 10 | 6 | 14 |
-| 2023 | 28 | 14 | 15 |
-| 2024 | 33 | 7 | 8 |
-| 2025 | 30 | 12 | 11 |
+### O que conta como presença
 
-O número de aprovados com bolsa cresce ao longo dos anos (com uma queda pontual
-em 2022) e fica sempre acima dos sem bolsa. A leitura, porém, pede cautela. Sem
-conhecer a política de bolsas do cursinho, não dá para afirmar se os bolsistas
-representam retorno financeiro direto. A bolsa pode funcionar como marketing, por
-exemplo, atraindo mais matrículas e aprovações, o que seria um retorno indireto.
-O que o dado mostra é que a bolsa tem peso relevante no perfil das aprovações e
-merece ser acompanhada de perto, cruzando com a política real do curso.
-
-## Presença x aprovação
-
-### Como foi medido
-
-A ideia foi cruzar presença com aprovação para entender se as aulas têm impacto
-direto no resultado dos estudantes. Cada aluno com presença registrada foi
-classificado como aprovado ou não aprovado, e comparamos a taxa de presença dos
-dois grupos.
-
-Três decisões deixam a leitura mais correta:
-
-- A métrica é comparecimento: contam como presença tanto o status `presente`
-  quanto o `atrasado`, já que em ambos o aluno esteve na aula. Tratar o atraso
-  como falta subestimaria a frequência.
-- A presença foi amarrada ao ano da aula (via `aula_id`) e só é comparada com a
-  aprovação do mesmo ano. Isso evita misturar a presença de um ano com a
-  aprovação de outro. Aqui só existe dado de 2021.
-- Consideramos apenas alunos com presença registrada, e a situação de aprovação
-  é conferida contra a base completa. Então o "não aprovado" é real.
+Presença é o comparecimento do aluno às aulas registradas do ano: contam as aulas em
+que ele esteve presente ou chegou atrasado, porque o aluno atrasado esteve na aula.
+Falta justificada não conta como comparecimento, já que continua sendo falta, só com
+explicação.
 
 ### Resultado
 
-| Ano | Situação | Alunos | Aulas registradas | Comparecimentos | Taxa de presença |
-|---|---|---:|---:|---:|---:|
-| 2021 | Aprovado | 16 | 162 | 137 | 84,6% |
-| 2021 | Não aprovado | 31 | 338 | 273 | 80,8% |
+**Não há relação detectável.** A presença média de quem passou é 83,8% e de quem não
+passou é 84,0%, uma diferença de −0,2 ponto percentual. Com 1.022 casos, a margem de
+erro dessa diferença vai de −0,8 a +0,4 ponto, ou seja, ela inclui o zero. A correlação
+entre presença e aprovação é de −0,023, praticamente zero. E em 4 dos 5 anos quem não
+passou teve presença **maior** que quem passou.
 
-### Leitura
+**Frequentar mais não aumenta a chance de passar.** Separando os alunos por faixa de
+presença:
 
-Os aprovados frequentaram um pouco mais as aulas do que os não aprovados, mas a
-diferença é pequena: cerca de 4 pontos percentuais, menos de 5% em termos
-relativos. É pouco para afirmar que existe uma relação forte entre presença e
-aprovação, ainda mais com apenas 2021 e poucas dezenas de alunos — 47 no total,
-sendo 16 aprovados. Com uma amostra desse tamanho, um punhado de faltas a mais
-ou a menos move a taxa de um grupo em vários pontos.
-
-O que se vê é uma frequência alta e parecida nos dois grupos, na casa dos 80%.
-Não há um grupo de aprovados que "quase não falta" contra um grupo de reprovados
-faltoso: os dois comparecem à grande maioria das aulas. Se presença explicasse
-aprovação, o esperado era uma separação bem mais nítida do que essa.
-
-### Recomendação
-
-Com os dados atuais, presença não parece ser uma métrica que a coordenação
-precise vigiar como preditor de aprovação: quem foi aprovado e quem não foi
-frequentam praticamente igual. Para entender o que separa os dois grupos, faz
-mais sentido olhar variáveis de desempenho do que de comparecimento — estar na
-sala não é o mesmo que estar acompanhando a aula. Como no resto do relatório,
-uma leitura firme depende de ter a presença de todos os anos, não só de 2021.
-
-## Desempenho
-
-A pergunta tem duas leituras possíveis, "matéria" e "curso", que vivem em
-lugares diferentes da base e respondem a coisas diferentes. Além delas, incluí
-alguns recortes complementares que ajudam a entender o desempenho, tanto nas
-matérias do cursinho quanto no vestibular.
-
-### Nota de simulado x nota do vestibular
-
-Entre os aprovados que também têm simulado, quase 90% tiraram nota maior no
-vestibular do que nos simulados, com diferença média em torno de 12 pontos na
-mesma escala de 0 a 100. Isso é positivo: mostra que o simulado é mais exigente
-que a prova real, então o aluno chega bem preparado e rende ainda mais na hora
-que conta. Não é caso de mexer numa dificuldade que vem funcionando.
-
-### Nota de simulado x aprovação
-
-Olhando a taxa de aprovação por faixa de nota de simulado, ela não cresce com a
-nota. A faixa mais alta chega a ter a menor taxa:
-
-| Faixa de nota de simulado | Alunos | Taxa de aprovação |
+| Faixa de presença | Alunos | Taxa de aprovação |
 |---|---:|---:|
-| Abaixo de 50 | 19 | 42,1% |
-| 50 a 60 | 44 | 29,5% |
-| 60 a 70 | 54 | 44,4% |
-| 70 ou mais | 21 | 23,8% |
+| Abaixo de 78% | 93 | 31,2% |
+| 78% a 82% | 235 | 35,7% |
+| 82% a 86% | 356 | 34,6% |
+| 86% a 90% | 245 | 31,0% |
+| 90% ou mais | 93 | **29,0%** |
 
-Que a taxa não cresça com a nota é esperado. A aprovação depende de muitos
-fatores que não estão nesta base, como frequência, condições da prova e até a
-integridade das respostas nos simulados. São muitas possibilidades e outliers em
-jogo. Na prática: a nota de simulado serve bem como diagnóstico de estudo, mas
-não deve ser lida sozinha como previsão de quem passa.
+A taxa não sobe da esquerda para a direita. A faixa de maior presença tem a **menor**
+taxa de aprovação de todas.
 
-### Desempenho por matéria
+### Por que isso não significa que faltar não custa
 
-| Matéria | Nota média | Nota mediana | Resultados |
-|---|---:|---:|---:|
-| Matemática | 61,0 | 59,9 | 337 |
-| Física | 60,6 | 59,5 | 86 |
+A presença varia pouco nesta base: vai de 70,3% a 97,1%, e metade dos alunos fica entre
+81,2% e 86,9%. Não existe aqui o aluno de presença baixa que serviria de contraprova.
+O que foi medido é o efeito de frequentar 81% contra 87% das aulas, e não o de faltar
+muito.
 
-Esta foi a leitura mais limitada da análise. A intenção era comparar o
-desempenho entre as disciplinas do cursinho pelas notas de simulado, mas a
-amostra só cobre matemática e física, e as duas ficam praticamente empatadas
-(média em torno de 60). Sem as outras nove matérias, não dá para dizer quais
-disciplinas rendem melhor, e ainda estamos olhando só para exatas. É, das
-análises, a que mais depende de mais dados para virar uma resposta de verdade.
+Uma ressalva de método: a presença é calculada sobre as **aulas registradas**. As aulas
+registradas somam 2.645 horas contra 9.302 contratadas nas ofertas, 28,4% do total.
+Então a métrica mede comparecimento às aulas que existem no sistema, e não frequência
+do aluno no curso contratado. As duas coisas não são a mesma, e a base não permite
+calcular a segunda.
 
-### Desempenho por curso
+---
 
-Medido pela nota final de vestibular por curso da universidade em que os alunos
-foram aprovados. Diferente da matéria, aqui o dado vem da base completa de
-aprovações, então é sólido.
+## 3. Desempenho por matéria e por curso
 
-| Curso | Nota média de vestibular | Aprovados |
+A pergunta tem duas leituras, e elas medem coisas diferentes. Matérias são o que o
+cursinho ensina, e o desempenho nelas vem dos simulados. Cursos são onde o aluno passou
+no vestibular, e a nota do curso diz mais sobre a concorrência dele do que sobre o
+preparo.
+
+### 3.1 Nenhuma matéria se destaca, em nenhum ano
+
+Entre as 10 matérias objetivas, a mediana da nota de simulado fica entre **61,2 e
+63,3** numa escala de 0 a 100. Nenhuma matéria varia mais de 3,5 pontos entre o melhor
+e o pior ano, e nenhuma fica acima das outras de forma consistente. O desvio padrão é
+de ~18,0 pontos em todas elas, ou seja, os alunos se espalham igual em cada matéria.
+
+Não existe aqui a matéria em que os alunos vão mal e que justificaria reforço.
+
+**Redação é o único caso diferente, e não por serem melhores nela.** A mediana dela é
+72,2 contra ~62 das objetivas, mas o que explica isso é o espalhamento, não o
+desempenho:
+
+| | Objetivas | Redação |
 |---|---:|---:|
-| Ciência da computação | 754,4 | 16 |
-| Administração | 753,6 | 24 |
-| Design | 741,5 | 25 |
-| ... | ... | ... |
-| Arquitetura | 707,3 | 27 |
-| Direito | 706,1 | 26 |
-| Engenharia civil | 701,5 | 26 |
+| Mediana | ~62 | 72,2 |
+| Desvio padrão | 18,0 | **11,5** |
+| Percentil 10 | ~38 | **58** |
 
-As maiores notas ficam em ciência da computação e administração; as menores, em
-engenharia civil e direito. O intervalo é relativamente estreito (cerca de 700 a
-754). Vale lembrar que isso mede o resultado no vestibular por curso pretendido,
-e não a facilidade ou o domínio de uma disciplina no preparo. É a resposta mais
-confiável para a pergunta, mas responde ao lado "curso", não ao lado "matéria".
+O desvio de redação é quase a metade, e os 10% piores em redação ficam acima de 58,
+contra 38 nas objetivas. É o comportamento esperado de correção de texto: é avaliação
+subjetiva, e banca de redação raramente dá nota muito baixa. Quase ninguém vai mal, e é
+isso que empurra a mediana para cima.
 
-### Desempenho por modalidade de ensino (análise extra)
+Nota técnica: redação é corrigida de 0 a 1000 e as demais matérias de 0 a 100, então
+todas as comparações usam a coluna `nota_norm`, que é a nota capada nos limites da
+própria matéria e reescalada para 0 a 100.
 
-| Modalidade | Taxa de aprovação |
-|---|---:|
-| Híbrido | 45,5% |
-| Presencial | 44,1% |
-| Online | 39,1% |
+### 3.2 Nota em matéria nenhuma separa quem passa de quem não passa
 
-O online rende um pouco menos que o presencial e o híbrido, mas o quadro está
-bem equilibrado. Não é caso de reduzir a modalidade, e sim, no máximo, de revisar
-as tutorias e o suporte oferecidos no online. Como as outras, é uma leitura de
-base pequena e serve mais como sinal do que como veredito.
+Comparando a mediana dos aprovados com a dos não aprovados em cada matéria e ano, os
+aprovados vão melhor em 25 das 55 combinações, quando o simples acaso daria cerca de
+27. A diferença média é de −0,2 ponto. E **nenhuma matéria tem os aprovados à frente
+nos cinco anos**, que é o que se esperaria de uma matéria que de fato pesasse na
+aprovação.
 
-## Recomendações para a coordenação
+### 3.3 Nos cursos, o ranking de nota não se sustenta
 
-A leitura geral é positiva. O modelo de preparo vem funcionando, com destaque
-para as turmas híbridas; os simulados estão num nível de exigência adequado; e a
-taxa de aprovação dos matriculados evoluiu bem ao longo dos anos. A ressalva que
-vale para tudo é que a maior parte dessas leituras se apoia em amostras pequenas.
-Por isso, o passo mais importante antes de qualquer decisão de peso é conseguir a
-base completa.
+A mediana da nota de vestibular vai de 697,4 (economia) a 763,9 (ciência da
+computação), uma diferença de 66,5 pontos. Só que a faixa que cobre 80% dos aprovados
+de cada curso tem em média **207 pontos de largura**, várias vezes maior que a
+distância entre o primeiro e o último. As faixas se sobrepõem quase inteiramente, e é
+por isso que trocar posições dessa lista não significa nada.
 
-O primeiro ponto é um mérito claro: a evolução da taxa de aprovação. Ela
-praticamente dobrou de 2021 a 2025, saindo de cerca de um terço dos matriculados
-para dois terços, com crescimento consistente ano a ano. É um sinal forte de que
-o preparo vem ficando mais efetivo, e a coordenação deve reconhecer e sustentar o
-que gera esse resultado.
+Além disso, a nota do curso não mede o cursinho: ela reflete a concorrência do curso,
+isto é, quanto foi preciso tirar para entrar. Curso com mediana alta é curso disputado,
+não curso em que o cursinho prepara melhor.
 
-A partir daí, três frentes merecem atenção prática:
+O indicador de curso que se sustenta é contagem, não média: **enfermagem** é onde o
+cursinho colocou mais alunos no período, com 28 dos 339 aprovados.
 
-**Turmas online.** A modalidade online teve taxa de aprovação um pouco abaixo da
-presencial e da híbrida. O quadro está equilibrado e não pede mudança drástica,
-mas vale revisar as tutorias e o suporte do online para entender e reduzir essa
-diferença.
+### 3.4 O simulado é mais severo que o vestibular
 
-**Presença.** A frequência ficou logo acima de 70%, o patamar que costuma ser o
-mínimo aceitável. Mais do que a relação com aprovação, que se mostrou fraca, o
-que merece investigação é o motivo dessa frequência baixa, que pode indicar
-desengajamento dos estudantes.
+Comparando, para cada aluno aprovado, a média dos simulados dele com a nota de
+vestibular do mesmo ano, as duas na régua de 0 a 100:
 
-**Bolsas.** A bolsa tem peso relevante no perfil das aprovações e cresceu ao
-longo dos anos. Vale validar a política de bolsas junto ao retorno real que ela
-traz, seja financeiro direto, seja indireto (como atração de novas matrículas).
+- a diferença mediana é de **+10,1 pontos** a favor do vestibular;
+- **85,3%** dos 339 alunos tiraram no vestibular mais do que a própria média de
+  simulado;
+- o padrão se repete nos cinco anos, com mediana entre +6,3 e +11,0 pontos.
 
-Por fim, o que está funcionando deve ser mantido: a exigência dos simulados, que
-prepara bem os alunos, e o modelo híbrido. O que trava conclusões mais firmes é a
-falta de dados. Para projetar tudo com segurança, o ideal é consolidar a base
-completa, principalmente os resultados de simulado de todas as matérias (hoje só
-matemática e física), a presença de todos os anos (hoje só 2021) e o cadastro
-completo de estudantes. Com esses dados, praticamente todas as leituras deste
-relatório passam de indício para conclusão.
+Duas leituras, e é importante separar as duas. A primeira é de calibragem: o simulado
+do cursinho é mais severo do que a prova que ele prepara. A segunda é de seleção: nota
+de vestibular só existe na base para quem passou, e passar exige nota alta, então esse
+grupo já é o dos que foram bem na prova. Parte dos 10 pontos é isso. Com esta base não
+dá para separar as duas coisas.
 
-## Próximos passos com a base completa
+O que dá para afirmar com segurança é que **o simulado não está superestimando o
+aluno**, o que seria o risco real, e que **a nota de simulado não prevê a nota de
+vestibular**: a correlação entre as duas é de 0,035, e a nuvem de pontos não tem
+inclinação nenhuma.
 
-Com a base completa em mãos, o plano seria voltar à etapa exploratória e mapear o
-que os dados de fato permitem, levantando novas métricas e cruzamentos que hoje
-são inviáveis pelo tamanho da amostra. A partir de uma base consistente, o passo
-seguinte seria partir para modelos de machine learning para prever aprovação a
-partir do perfil do aluno, da frequência, das notas de simulado e das demais
-variáveis.
+### 3.5 A matéria forte do aluno não indica o curso em que ele passa
 
-Outra evolução deixaria o relatório mais dinâmico: conectar cada análise a uma
-API de inteligência artificial que geraria um parecer sobre aquele dado logo
-abaixo do gráfico, comentando o que se vê e sugerindo leituras. Para não consultar
-a IA a cada visualização e evitar custos desnecessários, esse parecer ficaria
-em cache, sendo regerado apenas quando o dado por trás mudasse.
+Se houvesse relação, os aprovados de medicina viriam acima da média em Ciências da
+Natureza, os de engenharia em Matemática, os de direito em Humanas. Padronizando a nota
+dentro de cada área e ano, e cruzando as 5 áreas do ENEM com os 14 cursos, **nenhuma
+das 70 combinações passa de dois erros padrão**, quando o próprio acaso produziria
+cerca de 4. O valor mais extremo da tabela é 0,39 desvio, e nem ele escapa da margem.
+
+O agrupamento por área foi necessário por tamanho de amostra: são 339 aprovados no
+período, e cruzar 11 matérias com 14 cursos daria células de 2 alunos.
+
+---
+
+## 4. Análises complementares
+
+### 4.1 Modelo de ensino não muda resultado nem frequência
+
+**Frequência**, medida pela modalidade de cada aula, fica entre 83,8% e 84,1% nas
+quatro modalidades. Aula online não tem mais falta que aula presencial, e o padrão se
+repete em todos os anos.
+
+**Aprovação** só permite comparar dois grupos, não três. A modalidade é atributo da
+oferta, e olhando as combinações que existem de fato, um aluno ou fez tudo online, ou
+fez presencial e híbrido ao mesmo tempo. Nenhum aluno fez só presencial, e nenhum fez
+só híbrido, porque as ofertas online estão todas na unidade Online e as unidades
+físicas oferecem presencial e híbrido lado a lado. Entre os dois grupos: 32,7% de
+aprovação para quem estudou só online (367 alunos) contra 33,4% para quem estudou em
+unidade física (655 alunos).
+
+### 4.2 Dispositivo e local de aplicação do simulado não mudam a nota
+
+A nota mediana varia **0,9 ponto** entre os cinco dispositivos (celular, desktop,
+tablet, papel e sem registro) e **0,4 ponto** entre as cinco unidades de aplicação.
+O espalhamento também é igual em todos.
+
+Tentativas também não distinguem: a média fica entre 1,59 e 1,64 por resultado. E
+tentativa não compra nota — quem concluiu na primeira tem mediana de 63,3 e quem
+precisou de três tem 62,8. Repetir o simulado não melhora o desempenho, então
+tentativas mede atrito, não esforço que rende.
+
+### 4.3 Nenhum professor dá aula fora da sua matéria
+
+Das 2.418 aulas da base, **zero** foram em matéria diferente da matéria principal do
+professor. Todos os 34 professores lecionam exatamente uma matéria.
+
+Mas o cadastro diz outra coisa: **24 dos 34 declaram ensinar mais matérias do que
+lecionam**. A coluna `materias_ensina` lista duas ou três, e a escala usa uma. São duas
+leituras possíveis e as duas pedem ação, e estão na recomendação 4 abaixo.
+
+Dentro da própria matéria, os professores não se diferenciam: nem a nota dos simulados
+que criam nem o comparecimento às aulas que dão separam professor de professor, e os
+intervalos de confiança se sobrepõem quase todos.
+
+---
+
+## 5. Recomendações para a coordenação
+
+### 1. Parar de ler a nota do simulado como previsão de vestibular
+
+Entre os aprovados, a nota de vestibular ficou 10,1 pontos acima da média de simulado
+do próprio aluno, e a correlação entre as duas é 0,035, ou seja, zero. Saber que um
+aluno tira 55 no simulado não diz nada sobre a nota que ele fará na prova.
+
+O simulado serve como diagnóstico de conteúdo, e é assim que deve ser apresentado ao
+aluno e à família. Se a coordenação quiser um termômetro de aprovação, ele precisa ser
+construído e validado, porque hoje não existe.
+
+### 2. Decidir modalidade por custo e alcance, não por eficácia
+
+A diferença de aprovação entre quem estuda só online e quem estuda em unidade física é
+de 0,7 ponto, com intervalo de −6,7 a +5,3. A frequência também é igual, com 0,2 ponto
+de diferença entre modalidades de aula.
+
+Como o formato não muda o resultado, a escolha fica liberada para o critério que de
+fato varia: custo por aluno, alcance geográfico e capacidade de sala. O mesmo raciocínio
+vale para dispositivo e local de aplicação do simulado, onde a nota varia menos de um
+ponto: não há retorno em padronizar equipamento.
+
+### 3. Para mais aprovados, crescer matrícula é o caminho comprovado
+
+De 2021 a 2025 a matrícula cresceu 68,8% e os aprovados 60,0%, com a taxa parada em
+torno de 33%. Crescer funcionou e não diluiu a qualidade.
+
+O que a base não oferece é qualquer alavanca de conversão: nenhum fator testado a move.
+Então uma meta de número de aprovados deve ser planejada por volume de matrícula, e uma
+meta de taxa de aprovação precisa antes de um diagnóstico que esta base não permite
+fazer.
+
+### 4. Resolver a habilitação dos professores
+
+24 dos 34 professores declaram ensinar mais matérias do que lecionam. Se a segunda
+habilitação é real, existe flexibilidade de escala que não está sendo usada, o que
+importa em férias, licença e abertura de turma. Se não é real, o cadastro está errado e
+vai embasar uma decisão ruim algum dia. Vale confirmar qual dos dois.
+
+---
+
+## 6. O que passar a registrar
+
+Boa parte do que a coordenação gostaria de saber não está respondida aqui por falta de
+registro, e não por falta de análise. Em ordem de impacto:
+
+**1. A nota de vestibular de quem não passou.** Hoje a base só tem nota de aprovado,
+então a comparação entre simulado e vestibular usa 339 alunos que, por definição, foram
+bem na prova. Sem a nota de quem prestou e não passou, não há como medir a eficácia do
+preparo, nem calibrar o simulado, nem saber a que distância do corte os alunos ficaram.
+É o registro que mais destravaria análise.
+
+**2. Todas as aulas dadas.** As aulas registradas cobrem 28,4% da carga horária
+contratada nas ofertas, com 8 a 14 aulas por oferta contra 30 a 60 horas contratadas.
+Nenhuma das 220 ofertas fecha. Enquanto isso não mudar, métrica de carga horária
+cumprida é inviável, e a frequência mede comparecimento às aulas registradas.
+
+**3. Presença de quem falta muito.** A presença vai de 70,3% a 97,1%, e metade dos
+alunos fica entre 81% e 87%. Não existe aluno de presença baixa. Ou o cursinho não tem
+problema de evasão de aula, o que seria notável, ou esses alunos não estão sendo
+registrados. Vale confirmar qual dos dois, porque a conclusão de que presença não afeta
+aprovação vale para a faixa observada, e não para quem falta de verdade.
+
+**4. Campos que chegam pela metade.** Tentativas do simulado não é informada em 16,9%
+dos resultados; 253 aulas (10,5%) têm data anterior ao início da própria oferta, todas
+elas antes e no máximo 49 dias antes, o que sugere aula acontecendo antes da abertura
+oficial da oferta; e as datas chegam em quatro formatos diferentes, um deles com mês
+antes do dia. Nada disso invalida as análises atuais, mas cada um cobra um tratamento
+que poderia não existir se a entrada fosse padronizada.
+
+---
+
+## 7. O que não decidir com estes números
+
+O dashboard mostra rankings, e ranking convida a decidir por ele. Quatro coisas que os
+números **não** autorizam:
+
+**Não ranquear matéria, curso ou professor.** As medianas existem e podem ser
+ordenadas, mas as margens de erro se sobrepõem nos três casos. Entre as matérias
+objetivas, a diferença entre primeira e última é de pouco mais de dois pontos numa
+escala de 0 a 100. Entre cursos, a faixa que cobre 80% dos aprovados de cada um tem 207
+pontos de largura contra 66 de distância entre o primeiro e o último.
+
+**Não criar reforço para "matéria fraca".** Ela não existe nesta base. Os três
+indicadores por matéria — nota, conclusão de simulado e presença — ficam na mesma faixa
+estreita, e a nota em matéria nenhuma separa aprovado de não aprovado em nenhum ano.
+
+**Não montar turma por perfil de área.** O cruzamento entre a área em que o aluno é
+forte e o curso em que ele passou não mostra relação: de 70 combinações, nenhuma escapa
+da margem de erro.
+
+**Não tratar redação como a matéria em que os alunos vão melhor.** A nota é mais alta
+porque é correção de texto, e o desvio pela metade prova isso.
+
+---
+
+## 8. Notas de método
+
+**Alinhamento por ano em todo cruzamento.** Sempre que uma análise cruza dois fatos com
+data (matrícula e aprovação, simulado e vestibular, presença e aprovação), o casamento é
+pelo mesmo ano. Isso evita comparar um evento de um ano com outro de outro ano. A regra
+não custa nada aqui: todas as 339 aprovações da base têm matrícula no mesmo ano.
+
+**Mediana e desvio ao lado da média.** A média sozinha esconde a forma da distribuição.
+A mediana descreve o aluno típico sem ser deslocada por valores extremos, e o desvio é
+o que mostra desempenho fora da curva. Foi o desvio, e não a média, que revelou por que
+redação parece melhor que as outras matérias.
+
+**Intervalo de confiança em toda comparação.** Ranking sem margem de erro convida a
+decidir por diferença que não existe. Onde há ordenação, há intervalo desenhado ao lado.
+
+**Escala de gráfico ancorada em faixa que significa algo**, nunca no intervalo
+observado. Esticar uma rampa de cor ou um eixo sobre meio ponto de variação pinta ruído
+como se fosse contraste.
+
+**O que não foi corrigido, e por quê.** Duas ambiguidades de data ficaram como estão:
+360 registros de `inicio_simulado` e um subconjunto de `data_aula` podem ter dia e mês
+trocados, mas não existe referência na base para decidir caso a caso, e reinterpretar
+por inferência estatística corromperia mais linhas do que corrigiria. Nenhuma das duas
+afeta qualquer número deste relatório, porque os recortes temporais usam a coluna `ano`.
