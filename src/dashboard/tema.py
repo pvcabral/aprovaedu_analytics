@@ -33,9 +33,8 @@ ESCALA_SEQUENCIAL = [
     [posicao / (len(SEQUENCIAL) - 1), cor] for posicao, cor in enumerate(SEQUENCIAL)
 ]
 
-# Rampa divergente, para valor com polaridade (acima e abaixo de um ponto
-# neutro). Dois tons que leem como opostos, com cinza no meio: o meio precisa
-# ler como "nada", e é por isso que não entra cor nele.
+# Rampa divergente, para valor com polaridade. O meio é cinza para o zero ler
+# como ausência de efeito.
 DIVERGENTE = [
     [0.0, "#2a78d6"],   # polo negativo, azul
     [0.5, "#f0efec"],   # neutro, cinza
@@ -119,7 +118,8 @@ def aplicar_layout(
             y=1.04,
             x=0,
             title=None,
-            # Ordem igual à de declaração das séries.
+            # Ordem da legenda igual à ordem em que as séries foram declaradas,
+            # para a série que é o assunto do gráfico vir primeiro.
             traceorder="normal",
             font=dict(color=TINTA_SECUNDARIA),
         ),
@@ -178,3 +178,4 @@ def anotar_valor(
         yshift=deslocamento_y,
         font=dict(family=FONTE, size=13, color=cor),
     )
+

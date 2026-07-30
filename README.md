@@ -87,6 +87,9 @@ docker exec -it desafio_logap_db psql -U logap -d desafio_logap
 │   ├── <base>.zip                  # zip da base, colocado por quem vai rodar
 │   ├── extraido/                   # saída da extração, recriada a cada execução
 │   └── tratados/                   # CSVs tratados, gerados pelo main.py
+├── scripts/
+│   └── gerar_imagens_relatorio.py  # exporta os gráficos usados no RELATORIO.md
+├── docs/imagens/                   # gráficos do relatório, em PNG
 ├── src/
 │   ├── extracao.py                 # localiza e descompacta o zip da base
 │   ├── banco.py                    # classe BancoDados (conexão e queries)
@@ -161,6 +164,17 @@ jupyter lab notebooks/validacao_tabelas.ipynb
 O notebook carrega as 11 tabelas finais por `main.carregar_base_tratada()`, o mesmo
 caminho de código da carga no Postgres, e traz uma seção por tabela com os
 tratamentos aplicados, checagens de PK/FK e comparações com a versão crua.
+
+## Imagens do relatório
+
+Os gráficos do [RELATORIO.md](RELATORIO.md) ficam em `docs/imagens/` e são gerados
+pelas mesmas funções que desenham o dashboard, então imagem e tela não divergem. Para
+regerar depois de uma nova carga:
+
+```bash
+pip install -r requirements.txt kaleido==0.2.1
+python scripts/gerar_imagens_relatorio.py
+```
 
 ## Consultas do dashboard
 

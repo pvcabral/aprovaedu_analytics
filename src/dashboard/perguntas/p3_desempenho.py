@@ -214,7 +214,9 @@ def grafico_nota_por_curso(curso_nota: pd.DataFrame) -> go.Figure:
     )
     tema.aplicar_layout(fig, altura=480, titulo_x="nota final de vestibular",
                         margem_esquerda=170)
-    fig.update_xaxes(showgrid=True, gridcolor=tema.GRADE)
+    # Faixa fixa com folga: sem ela o eixo termina no maior percentil e a barra mais
+    # longa encosta na borda.
+    fig.update_xaxes(showgrid=True, gridcolor=tema.GRADE, range=[550, 950])
     fig.update_yaxes(showgrid=False, type="category")
     return fig
 

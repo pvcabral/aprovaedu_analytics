@@ -2,12 +2,13 @@
 
 Este relatório responde às perguntas do desafio e reúne os achados e as
 recomendações. Todos os números saem das consultas em `src/dashboard/querys/`, que
-rodam como SQL puro e podem ser conferidas fora do dashboard.
+rodam como SQL puro e podem ser conferidas fora do dashboard. Os gráficos são os
+mesmos do dashboard, gerados por `scripts/gerar_imagens_relatorio.py`.
 
 A base cobre 2021 a 2025, com 1.022 pares de aluno e ano matriculados, 339
 aprovações no vestibular, 18.299 simulados concluídos e 74.997 registros de presença.
 
-## A conclusão que organiza o resto
+## A conclusão
 
 Vale começar pelo achado central, porque ele muda o tipo de recomendação que o
 relatório pode fazer: **nenhum dos fatores testados distingue quem passa de quem não
@@ -24,6 +25,8 @@ passa no vestibular.**
 Cada linha compara o grupo alto com o grupo baixo do fator, na mesma unidade: pontos
 percentuais de taxa de aprovação. **Os cinco intervalos contêm o zero**, o que
 significa que nenhuma dessas diferenças se distingue de nenhuma diferença.
+
+![Efeito de cada fator testado na taxa de aprovação, com intervalo de 95%. Todos os cinco intervalos cruzam a linha do zero.](docs/imagens/fatores-testados.png)
 
 E o maior efeito da tabela é a variação entre dois anos. A oscilação natural de um ano
 para o outro é maior do que qualquer fator que a coordenação controla.
@@ -58,6 +61,8 @@ O denominador vem de `matriculas` e o numerador é conferido contra `aprovacoes`
 | 2023 | 218 | 77 | 35,3% | +4,1 pp |
 | 2024 | 263 | 79 | 30,0% | −5,3 pp |
 | 2025 | 233 | 80 | 34,3% | +4,3 pp |
+
+![Taxa de aprovação por ano, com a média do período como referência.](docs/imagens/taxa-por-ano.png)
 
 **A taxa não tem tendência.** O maior valor é 36,2% em 2021 e o menor é 30,0% em 2024,
 uma diferença de 6,2 pontos percentuais em torno da média de 33,2%. De um ano para o
@@ -108,6 +113,8 @@ presença:
 A taxa não sobe da esquerda para a direita. A faixa de maior presença tem a **menor**
 taxa de aprovação de todas.
 
+![Taxa de aprovação por faixa de presença. A escada não sobe.](docs/imagens/aprovacao-por-faixa-de-presenca.png)
+
 ### Por que isso não significa que faltar não custa
 
 A presença varia pouco nesta base: vai de 70,3% a 97,1%, e metade dos alunos fica entre
@@ -139,6 +146,8 @@ de ~18,0 pontos em todas elas, ou seja, os alunos se espalham igual em cada mat�
 
 Não existe aqui a matéria em que os alunos vão mal e que justificaria reforço.
 
+![Mediana da nota de simulado por matéria e ano, na escala de 50 a 80.](docs/imagens/mediana-por-materia.png)
+
 **Redação é o único caso diferente, e não por serem melhores nela.** A mediana dela é
 72,2 contra ~62 das objetivas, mas o que explica isso é o espalhamento, não o
 desempenho:
@@ -154,6 +163,8 @@ contra 38 nas objetivas. É o comportamento esperado de correção de texto: é 
 subjetiva, e banca de redação raramente dá nota muito baixa. Quase ninguém vai mal, e é
 isso que empurra a mediana para cima.
 
+![Desvio padrão da nota por matéria e ano. Redação aparece nitidamente mais clara que as objetivas.](docs/imagens/desvio-por-materia.png)
+
 Nota técnica: redação é corrigida de 0 a 1000 e as demais matérias de 0 a 100, então
 todas as comparações usam a coluna `nota_norm`, que é a nota capada nos limites da
 própria matéria e reescalada para 0 a 100.
@@ -166,6 +177,8 @@ aprovados vão melhor em 25 das 55 combinações, quando o simples acaso daria c
 nos cinco anos**, que é o que se esperaria de uma matéria que de fato pesasse na
 aprovação.
 
+![Mediana dos aprovados menos a dos não aprovados, por matéria e ano. Nenhuma linha é consistentemente vermelha.](docs/imagens/nota-e-aprovacao-por-materia.png)
+
 ### 3.3 Nos cursos, o ranking de nota não se sustenta
 
 A mediana da nota de vestibular vai de 697,4 (economia) a 763,9 (ciência da
@@ -173,6 +186,8 @@ computação), uma diferença de 66,5 pontos. Só que a faixa que cobre 80% dos 
 de cada curso tem em média **207 pontos de largura**, várias vezes maior que a
 distância entre o primeiro e o último. As faixas se sobrepõem quase inteiramente, e é
 por isso que trocar posições dessa lista não significa nada.
+
+![Nota de vestibular por curso: a barra vai do percentil 10 ao 90 e o ponto é a mediana.](docs/imagens/nota-por-curso.png)
 
 Além disso, a nota do curso não mede o cursinho: ela reflete a concorrência do curso,
 isto é, quanto foi preciso tirar para entrar. Curso com mediana alta é curso disputado,
@@ -190,6 +205,8 @@ vestibular do mesmo ano, as duas na régua de 0 a 100:
 - **85,3%** dos 339 alunos tiraram no vestibular mais do que a própria média de
   simulado;
 - o padrão se repete nos cinco anos, com mediana entre +6,3 e +11,0 pontos.
+
+![Cada aluno aprovado nas duas provas. A nuvem fica acima da diagonal e não tem inclinação.](docs/imagens/simulado-vs-vestibular.png)
 
 Duas leituras, e é importante separar as duas. A primeira é de calibragem: o simulado
 do cursinho é mais severo do que a prova que ele prepara. A segunda é de seleção: nota
@@ -212,6 +229,8 @@ cerca de 4. O valor mais extremo da tabela é 0,39 desvio, e nem ele escapa da m
 
 O agrupamento por área foi necessário por tamanho de amostra: são 339 aprovados no
 período, e cruzar 11 matérias com 14 cursos daria células de 2 alunos.
+
+![Escore padronizado dos aprovados de cada curso, por área. A escala vai até um desvio padrão inteiro.](docs/imagens/relacao-area-e-curso.png)
 
 ---
 
@@ -284,6 +303,8 @@ ponto: não há retorno em padronizar equipamento.
 
 De 2021 a 2025 a matrícula cresceu 68,8% e os aprovados 60,0%, com a taxa parada em
 torno de 33%. Crescer funcionou e não diluiu a qualidade.
+
+![Matriculados e aprovados indexados em 100 no primeiro ano. As duas linhas sobem quase juntas.](docs/imagens/crescimento-indexado.png)
 
 O que a base não oferece é qualquer alavanca de conversão: nenhum fator testado a move.
 Então uma meta de número de aprovados deve ser planejada por volume de matrícula, e uma
