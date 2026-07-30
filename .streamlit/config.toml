@@ -1,0 +1,17 @@
+# Tema fixo em claro, com as superfícies da paleta de visualização.
+#
+# A escolha é deliberada: os gráficos usam uma paleta validada contra uma
+# superfície específica (contraste e separação só significam algo contra a
+# superfície em que o gráfico de fato aparece). Deixar o tema seguir o sistema
+# operacional renderizaria as mesmas cores sobre um fundo escuro, invalidando a
+# validação. Ver src/dashboard/tema.py.
+[theme]
+base = "light"
+backgroundColor = "#f9f9f7"           # plano da página
+secondaryBackgroundColor = "#fcfcfb"  # superfície de card/gráfico
+textColor = "#0b0b0b"
+primaryColor = "#2a78d6"              # slot 1 da paleta categórica
+font = "sans serif"
+
+[server]
+headless = true

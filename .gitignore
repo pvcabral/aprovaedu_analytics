@@ -3,3 +3,15 @@ __pycache__/
 data/tratados/
 
 .env
+
+__MACOSX/
+.DS_Store
+*:Zone.Identifier
+
+# Zip da base e a pasta onde ele é extraído
+data/*.zip
+data/extraido/
+
+.ipynb_checkpoints/
+
+notebooks/*

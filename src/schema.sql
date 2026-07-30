@@ -14,10 +14,14 @@ DROP TABLE IF EXISTS professor_materia CASCADE;
 DROP TABLE IF EXISTS professores CASCADE;
 DROP TABLE IF EXISTS dim_materia CASCADE;
 
--- Dimensão de matérias, criada a partir de amostra_professores no tratamento
+-- Dimensão de matérias, gerada no tratamento a partir da tabela de professores
+-- nota_maxima: teto da escala de correção da matéria (100 na maioria,
+-- 1000 em redação). Fica na dimensão para tratamento e análises lerem a
+-- mesma fonte.
 CREATE TABLE dim_materia (
     materia_id      INTEGER PRIMARY KEY,
-    nome_materia    TEXT NOT NULL UNIQUE
+    nome_materia    TEXT NOT NULL UNIQUE,
+    nota_maxima     NUMERIC NOT NULL DEFAULT 100
 );
 
 CREATE TABLE professores (
@@ -120,7 +124,11 @@ CREATE TABLE resultados_sim (
     dispositivo              TEXT,
     tentativas               NUMERIC,
     unidade_aplicacao        TEXT,
+    -- nota_norm: nota capada nos limites da matéria e reescalada para 0-100,
+    -- o que torna redação (0-1000) comparável com as demais matérias.
+    nota_norm                NUMERIC,
     nota_acima_lim           BOOLEAN,
+    nota_abaixo_lim          BOOLEAN,
     tempo_acima_lim          BOOLEAN
 );
 
