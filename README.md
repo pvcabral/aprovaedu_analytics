@@ -1,4 +1,4 @@
-# Desafio LogAp: AprovaEdu Analytics
+# Desafio: AprovaEdu Analytics
 
 Pipeline que extrai a base de um zip, trata os dados, carrega num Postgres modelado
 com PK e FK, e apresenta as análises num dashboard Streamlit. Tudo sobe com um único
